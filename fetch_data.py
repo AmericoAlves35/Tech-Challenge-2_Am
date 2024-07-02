@@ -1,6 +1,7 @@
 import csv
 import os
 import time
+import boto3
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
@@ -8,6 +9,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from datetime import datetime
 
 # Configurando as opções do Chrome para rodar em modo headless
 chrome_options = Options()
@@ -120,3 +122,13 @@ finally:
             escritor_csv.writerow([chave] + valores if isinstance(valores, list) else [chave, valores])
 
     print(f'Dados salvos com sucesso em {caminho_arquivo}')
+
+    # Upload para o bucket S3
+    try:
+        s3 = boto3.client('s3')
+        bucket_name = 'raw-bucket-bovespa'
+        data_atual = datetime.now().strftime("%Y-%m-%d")
+        s3.upload_file(caminho_arquivo, bucket_name, f'{data_atual}/dados_pregao_b3.csv')
+        print(f'Dados carregados com sucesso no bucket {bucket_name}')
+    except Exception as e:
+        print(f"Erro ao carregar dados no S3: {str(e)}")
