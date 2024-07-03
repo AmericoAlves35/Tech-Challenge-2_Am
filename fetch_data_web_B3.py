@@ -11,6 +11,16 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from datetime import datetime
 
+# Função para gerar o próximo nome de arquivo com contador
+def get_next_filename(base_name, extension, directory):
+    counter = 1
+    while True:
+        filename = f"{counter:02d}_{base_name}.{extension}"
+        filepath = os.path.join(directory, filename)
+        if not os.path.exists(filepath):
+            return filename
+        counter += 1
+
 # Configurando as opções do Chrome para rodar em modo headless
 chrome_options = Options()
 chrome_options.add_argument('--headless')  # Roda o navegador sem abrir uma janela GUI
@@ -105,7 +115,7 @@ finally:
 
     # Salvando os dados em um arquivo CSV no mesmo diretório do script
     diretorio_atual = os.getcwd()
-    nome_arquivo = 'dados_pregao_b3.csv'
+    nome_arquivo = get_next_filename('dados_pregao_b3', 'csv', diretorio_atual)
     caminho_arquivo = os.path.join(diretorio_atual, nome_arquivo)
 
     with open(caminho_arquivo, 'w', newline='', encoding='utf-8') as arquivo_csv:
@@ -128,7 +138,7 @@ finally:
         s3 = boto3.client('s3')
         bucket_name = 'raw-bucket-bovespa'
         data_atual = datetime.now().strftime("%Y-%m-%d")
-        s3.upload_file(caminho_arquivo, bucket_name, f'{data_atual}/dados_pregao_b3.csv')
+        s3.upload_file(caminho_arquivo, bucket_name, f'{data_atual}/{nome_arquivo}')
         print(f'Dados carregados com sucesso no bucket {bucket_name}')
     except Exception as e:
         print(f"Erro ao carregar dados no S3: {str(e)}")
