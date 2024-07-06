@@ -9,6 +9,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import Select
 from datetime import datetime
 
 # Função para gerar o próximo nome de arquivo com contador
@@ -38,6 +39,9 @@ base_url = 'https://sistemaswebb3-listados.b3.com.br/indexPage/day/IBOV?language
 dados_pregao = []
 dados_rodape = {}  # Dicionário para armazenar os valores do rodapé dinâmicos
 
+# Nomes das colunas da tabela de dados de pregão
+colunas_tabela = ['Setor', 'Código', 'Ação', 'Tipo', 'Qtde. Teórica', 'Part. (%)', 'Part. (%)Acum.']
+
 try:
     # Acessando a primeira página
     pagina = 1
@@ -47,6 +51,21 @@ try:
     # Esperando até 10 segundos para o elemento de tabela ser carregado
     wait = WebDriverWait(driver, 10)
     element = wait.until(EC.presence_of_element_located((By.TAG_NAME, 'table')))
+
+    # Capturando os textos "Carteira do Dia" e "Carteira Teórica"
+    carteira_dia = driver.find_element(By.XPATH, '//h2').text
+    carteira_teorica = driver.find_element(By.XPATH, '//p[contains(text(), "Carteira Teórica")]').text
+
+    # Selecionar "Setor de Atuação" no seletor "Consulta por"
+    select = Select(wait.until(EC.presence_of_element_located((By.ID, "segment"))))
+    select.select_by_visible_text("Setor de Atuação")
+
+    # Clicar no botão "BUSCAR"
+    buscar_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'BUSCAR')]")))
+    buscar_button.click()
+
+    # Esperar a tabela carregar
+    wait.until(EC.presence_of_element_located((By.CLASS_NAME, "table-responsive-md")))
 
     # Loop para coletar dados de todas as páginas disponíveis
     while True:
@@ -59,29 +78,20 @@ try:
             for linha in linhas:
                 # Verificando se a linha contém os dados esperados
                 colunas = linha.find_elements(By.TAG_NAME, 'td')
-                if len(colunas) >= 5:  # Verifica se há pelo menos 5 colunas (Código, Ação, Tipo, Qtde. Teórica, Part. (%))
-                    codigo = colunas[0].text.strip()
-                    acao = colunas[1].text.strip()
-                    tipo = colunas[2].text.strip()
-                    qtde_teoria = colunas[3].text.strip()
-                    part_percentual = colunas[4].text.strip().replace(',', '.')  # Substitui vírgulas por pontos
-                    dados_pregao.append([codigo, acao, tipo, qtde_teoria, part_percentual])
+                if len(colunas) >= len(colunas_tabela):  # Verifica se há pelo menos as colunas esperadas
+                    dados_linha = [col.text.strip() for col in colunas[:len(colunas_tabela)]]
+                    dados_pregao.append(dados_linha)
 
         # Capturando valores dinâmicos do rodapé (apenas na primeira página)
         if pagina == 1:
             rodape_element = driver.find_element(By.XPATH, '//tfoot')
             linhas_rodape = rodape_element.find_elements(By.TAG_NAME, 'tr')
 
-            # Primeira linha do rodapé (Quantidade Teórica Total)
-            colunas_primeira_linha = linhas_rodape[0].find_elements(By.TAG_NAME, 'td')
-            quantidade_total = colunas_primeira_linha[1].text.strip()
-            part_percentual = colunas_primeira_linha[2].text.strip().replace(',', '.')
-            dados_rodape['Quantidade Teórica Total'] = [quantidade_total, part_percentual]
-
-            # Segunda linha do rodapé (Redutor)
-            colunas_segunda_linha = linhas_rodape[1].find_elements(By.TAG_NAME, 'td')
-            redutor = colunas_segunda_linha[1].text.strip()
-            dados_rodape['Redutor'] = redutor
+            for i, linha in enumerate(linhas_rodape):
+                colunas = linha.find_elements(By.TAG_NAME, 'td')
+                chave_rodape = ['Quantidade Teórica Total', 'Redutor'][i]  # Definindo as chaves do rodapé dinamicamente
+                valores_rodape = [col.text.strip().replace(',', '.') for col in colunas[1:]]
+                dados_rodape[chave_rodape] = valores_rodape if len(valores_rodape) > 1 else valores_rodape[0]
 
         # Verificando se há um botão "Próximo" disponível
         proximo_button = None
@@ -121,15 +131,22 @@ finally:
     with open(caminho_arquivo, 'w', newline='', encoding='utf-8') as arquivo_csv:
         escritor_csv = csv.writer(arquivo_csv)
 
+        # Escrevendo as linhas "Carteira do Dia" e "Carteira Teórica"
+        escritor_csv.writerow([carteira_dia])
+        escritor_csv.writerow([carteira_teorica])
+        escritor_csv.writerow([])  # Linha em branco para separar
+
+        # Escrevendo os nomes das colunas
+        escritor_csv.writerow(colunas_tabela)
+
         # Escrevendo os dados das tabelas
-        escritor_csv.writerow(['Código', 'Ação', 'Tipo', 'Qtde. Teórica', 'Part. (%)'])
         for dado in dados_pregao:
             escritor_csv.writerow(dado)
 
         # Escrevendo os dados dinâmicos do rodapé em duas linhas distintas
         escritor_csv.writerow([])  # Linha em branco para separar
         for chave, valores in dados_rodape.items():
-            escritor_csv.writerow([chave] + valores if isinstance(valores, list) else [chave, valores])
+            escritor_csv.writerow([chave] + (valores if isinstance(valores, list) else [valores]))
 
     print(f'Dados salvos com sucesso em {caminho_arquivo}')
 
