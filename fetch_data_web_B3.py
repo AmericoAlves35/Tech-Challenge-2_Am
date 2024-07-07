@@ -153,7 +153,7 @@ finally:
 
     print(f'Dados salvos com sucesso em {caminho_arquivo_csv}')
 
-    # Converter o arquivo CSV para Parquet e enviar para o S3
+    # Converter o arquivo CSV para Parquet
     with open(caminho_arquivo_csv, 'r', encoding='utf-8') as csvfile:
         csv_reader = csv.DictReader(csvfile)
         rows = list(csv_reader)
@@ -164,12 +164,21 @@ finally:
         parquet_buffer = BytesIO()
         pq.write_table(table, parquet_buffer)
 
-        # Upload para o bucket S3
-        try:
-            s3 = boto3.client('s3')
-            bucket_name = 'raw-bucket-bovespa'
-            data_atual = datetime.now().strftime("%Y-%m-%d")
-            s3.upload_fileobj(parquet_buffer, bucket_name, f'{data_atual}/{nome_arquivo_csv.replace(".csv", ".parquet")}')
-            print(f'Dados |{nome_arquivo_csv.replace(".csv", ".parquet")}| carregados com sucesso no bucket {bucket_name}')
-        except Exception as e:
-            print(f"Erro ao carregar dados no S3: {str(e)}")
+        # Definir o nome do arquivo Parquet
+        nome_arquivo_parquet = nome_arquivo_csv.replace('.csv', '.parquet')
+        caminho_arquivo_parquet = os.path.join(diretorio_atual, nome_arquivo_parquet)
+
+        with open(caminho_arquivo_parquet, 'wb') as parquetfile:
+            parquetfile.write(parquet_buffer.getvalue())
+
+    print(f'Dados convertidos com sucesso para {caminho_arquivo_parquet}')
+
+    # Upload para o bucket S3
+    try:
+        s3 = boto3.client('s3')
+        bucket_name = 'raw-bucket-bovespa'
+        data_atual = datetime.now().strftime("%Y-%m-%d")
+        s3.upload_file(caminho_arquivo_parquet, bucket_name, f'{data_atual}/{nome_arquivo_parquet}')
+        print(f'Dados carregados com sucesso no bucket {bucket_name}')
+    except Exception as e:
+        print(f"Erro ao carregar dados no S3: {str(e)}")
