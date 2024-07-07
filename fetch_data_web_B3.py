@@ -2,6 +2,8 @@ import csv
 import os
 import time
 import boto3
+import pyarrow as pa
+import pyarrow.parquet as pq
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
@@ -11,6 +13,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 from datetime import datetime
+from io import StringIO, BytesIO
 
 # Função para gerar o próximo nome de arquivo com contador
 def get_next_filename(base_name, extension, directory):
@@ -125,10 +128,10 @@ finally:
 
     # Salvando os dados em um arquivo CSV no mesmo diretório do script
     diretorio_atual = os.getcwd()
-    nome_arquivo = get_next_filename('dados_pregao_b3', 'csv', diretorio_atual)
-    caminho_arquivo = os.path.join(diretorio_atual, nome_arquivo)
+    nome_arquivo_csv = get_next_filename('dados_pregao_b3', 'csv', diretorio_atual)
+    caminho_arquivo_csv = os.path.join(diretorio_atual, nome_arquivo_csv)
 
-    with open(caminho_arquivo, 'w', newline='', encoding='utf-8') as arquivo_csv:
+    with open(caminho_arquivo_csv, 'w', newline='', encoding='utf-8') as arquivo_csv:
         escritor_csv = csv.writer(arquivo_csv)
 
         # Escrevendo as linhas "Carteira do Dia" e "Carteira Teórica"
@@ -148,14 +151,25 @@ finally:
         for chave, valores in dados_rodape.items():
             escritor_csv.writerow([chave] + (valores if isinstance(valores, list) else [valores]))
 
-    print(f'Dados salvos com sucesso em {caminho_arquivo}')
+    print(f'Dados salvos com sucesso em {caminho_arquivo_csv}')
 
-    # Upload para o bucket S3
-    try:
-        s3 = boto3.client('s3')
-        bucket_name = 'raw-bucket-bovespa'
-        data_atual = datetime.now().strftime("%Y-%m-%d")
-        s3.upload_file(caminho_arquivo, bucket_name, f'{data_atual}/{nome_arquivo}')
-        print(f'Dados carregados com sucesso no bucket {bucket_name}')
-    except Exception as e:
-        print(f"Erro ao carregar dados no S3: {str(e)}")
+    # Converter o arquivo CSV para Parquet e enviar para o S3
+    with open(caminho_arquivo_csv, 'r', encoding='utf-8') as csvfile:
+        csv_reader = csv.DictReader(csvfile)
+        rows = list(csv_reader)
+        fieldnames = csv_reader.fieldnames
+
+        # Converter para Parquet
+        table = pa.Table.from_pylist(rows, schema=pa.schema([(field, pa.string()) for field in fieldnames]))
+        parquet_buffer = BytesIO()
+        pq.write_table(table, parquet_buffer)
+
+        # Upload para o bucket S3
+        try:
+            s3 = boto3.client('s3')
+            bucket_name = 'raw-bucket-bovespa'
+            data_atual = datetime.now().strftime("%Y-%m-%d")
+            s3.upload_fileobj(parquet_buffer, bucket_name, f'{data_atual}/{nome_arquivo_csv.replace(".csv", ".parquet")}')
+            print(f'Dados |{nome_arquivo_csv.replace(".csv", ".parquet")}| carregados com sucesso no bucket {bucket_name}')
+        except Exception as e:
+            print(f"Erro ao carregar dados no S3: {str(e)}")
