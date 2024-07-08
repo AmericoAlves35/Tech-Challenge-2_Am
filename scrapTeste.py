@@ -43,7 +43,7 @@ dados_pregao = []
 dados_rodape = {}  # Dicionário para armazenar os valores do rodapé dinâmicos
 
 # Nomes das colunas da tabela de dados de pregão
-colunas_tabela = ['Setor', 'Código', 'Ação', 'Tipo', 'Qtde. Teórica', 'Part. (%)', 'Part. (%)Acum.']
+colunas_tabela = ['Setor', 'Código', 'Ação', 'Tipo', 'Qtde. Teórica', 'Part. (%)', 'Part. (%) Acum.']
 
 try:
     # Acessando a primeira página
@@ -54,10 +54,6 @@ try:
     # Esperando até 10 segundos para o elemento de tabela ser carregado
     wait = WebDriverWait(driver, 10)
     element = wait.until(EC.presence_of_element_located((By.TAG_NAME, 'table')))
-
-    # Capturando os textos "Carteira do Dia" e "Carteira Teórica"
-    carteira_dia = driver.find_element(By.XPATH, '//h2').text
-    carteira_teorica = driver.find_element(By.XPATH, '//p[contains(text(), "Carteira Teórica")]').text
 
     # Selecionar "Setor de Atuação" no seletor "Consulta por"
     select = Select(wait.until(EC.presence_of_element_located((By.ID, "segment"))))
@@ -82,10 +78,7 @@ try:
                 # Verificando se a linha contém os dados esperados
                 colunas = linha.find_elements(By.TAG_NAME, 'td')
                 if len(colunas) >= len(colunas_tabela):  # Verifica se há pelo menos as colunas esperadas
-                    dados_linha = [col.text.strip() for col in colunas[:len(colunas_tabela)]]
-                    # Substituir vírgulas por pontos nas colunas "Part. (%)" e "Part. (%)Acum."
-                    dados_linha[5] = dados_linha[5].replace(',', '.')
-                    dados_linha[6] = dados_linha[6].replace(',', '.')
+                    dados_linha = [col.text.strip().replace(',', '.') for col in colunas[:len(colunas_tabela)]]
                     dados_pregao.append(dados_linha)
 
         # Capturando valores dinâmicos do rodapé (apenas na primeira página)
@@ -134,13 +127,8 @@ finally:
     nome_arquivo_csv = get_next_filename('dados_pregao_b3', 'csv', diretorio_atual)
     caminho_arquivo_csv = os.path.join(diretorio_atual, nome_arquivo_csv)
 
-    with open(caminho_arquivo_csv, 'w', newline='', encoding='utf-8') as arquivo_csv:
+    with open(caminho_arquivo_csv, 'w', newline='', encoding='utf-8-sig') as arquivo_csv:
         escritor_csv = csv.writer(arquivo_csv)
-
-        # Escrevendo as linhas "Carteira do Dia" e "Carteira Teórica"
-        escritor_csv.writerow([carteira_dia])
-        escritor_csv.writerow([carteira_teorica])
-        escritor_csv.writerow([])  # Linha em branco para separar
 
         # Escrevendo os nomes das colunas
         escritor_csv.writerow(colunas_tabela)
