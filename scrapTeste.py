@@ -83,6 +83,9 @@ try:
                 colunas = linha.find_elements(By.TAG_NAME, 'td')
                 if len(colunas) >= len(colunas_tabela):  # Verifica se há pelo menos as colunas esperadas
                     dados_linha = [col.text.strip() for col in colunas[:len(colunas_tabela)]]
+                    # Substituir vírgulas por pontos nas colunas "Part. (%)" e "Part. (%)Acum."
+                    dados_linha[5] = dados_linha[5].replace(',', '.')
+                    dados_linha[6] = dados_linha[6].replace(',', '.')
                     dados_pregao.append(dados_linha)
 
         # Capturando valores dinâmicos do rodapé (apenas na primeira página)
@@ -144,9 +147,7 @@ finally:
 
         # Escrevendo os dados das tabelas
         for dado in dados_pregao:
-            # Formatando os valores decimais corretamente
-            dado_formatado = [valor.replace('.', ',') if i in [5, 6] else valor for i, valor in enumerate(dado)]
-            escritor_csv.writerow(dado_formatado)
+            escritor_csv.writerow(dado)
 
         # Escrevendo os dados dinâmicos do rodapé em duas linhas distintas
         escritor_csv.writerow([])  # Linha em branco para separar
