@@ -41,9 +41,10 @@ base_url = 'https://sistemaswebb3-listados.b3.com.br/indexPage/day/IBOV?language
 # Inicializando variáveis
 dados_pregao = []
 dados_rodape = {}  # Dicionário para armazenar os valores do rodapé dinâmicos
+data_pregao = None
 
 # Nomes das colunas da tabela de dados de pregão
-colunas_tabela = ['Setor', 'Código', 'Ação', 'Tipo', 'Qtde. Teórica', 'Part. (%)', 'Part. (%) Acum.']
+colunas_tabela = ['Carteira do Dia', 'Setor', 'Código', 'Ação', 'Tipo', 'Qtde_Teórica', 'Part_(%)', 'Part_(%)_Acum']
 
 try:
     # Acessando a primeira página
@@ -66,6 +67,11 @@ try:
     # Esperar a tabela carregar
     wait.until(EC.presence_of_element_located((By.CLASS_NAME, "table-responsive-md")))
 
+    # Capturando a data da "Carteira do Dia"
+    carteira_dia_element = driver.find_element(By.XPATH, '//h2[contains(text(),"Carteira do Dia")]')
+    if carteira_dia_element:
+        data_pregao = carteira_dia_element.text.split(" - ")[-1]  # Extraindo a data
+
     # Loop para coletar dados de todas as páginas disponíveis
     while True:
         # Obtendo todas as tabelas na página atual
@@ -77,8 +83,14 @@ try:
             for linha in linhas:
                 # Verificando se a linha contém os dados esperados
                 colunas = linha.find_elements(By.TAG_NAME, 'td')
-                if len(colunas) >= len(colunas_tabela):  # Verifica se há pelo menos as colunas esperadas
-                    dados_linha = [col.text.strip().replace(',', '.') for col in colunas[:len(colunas_tabela)]]
+                if len(colunas) >= len(colunas_tabela) - 1:  # Verifica se há pelo menos as colunas esperadas menos a data
+                    dados_linha = [data_pregao]
+                    for i, col in enumerate(colunas[:len(colunas_tabela) - 1]):
+                        valor = col.text.strip().replace(',', '.')
+                        # Remover pontos da coluna Qtde_Teórica
+                        if colunas_tabela[i + 1] == 'Qtde_Teórica':
+                            valor = valor.replace('.', '')
+                        dados_linha.append(valor)
                     dados_pregao.append(dados_linha)
 
         # Capturando valores dinâmicos do rodapé (apenas na primeira página)
@@ -89,7 +101,7 @@ try:
             for i, linha in enumerate(linhas_rodape):
                 colunas = linha.find_elements(By.TAG_NAME, 'td')
                 chave_rodape = ['Quantidade Teórica Total', 'Redutor'][i]  # Definindo as chaves do rodapé dinamicamente
-                valores_rodape = [col.text.strip().replace(',', '.') for col in colunas[1:]]
+                valores_rodape = [col.text.strip().replace(',', '.').replace('.', '') for col in colunas[1:]]
                 dados_rodape[chave_rodape] = valores_rodape if len(valores_rodape) > 1 else valores_rodape[0]
 
         # Verificando se há um botão "Próximo" disponível
@@ -104,7 +116,7 @@ try:
             break  # Sai do loop se o botão "Próximo" estiver desabilitado
 
         # Clicando no botão "Próximo" para ir para a próxima página
-        proximo_button.click()
+        driver.execute_script("arguments[0].click();", proximo_button)
 
         # Aguardando um pequeno intervalo antes de continuar para evitar bloqueios
         time.sleep(2)
