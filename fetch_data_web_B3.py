@@ -135,8 +135,9 @@ finally:
     driver.quit()
 
     # Salvando os dados em um arquivo CSV no mesmo diretório do script
+    ##get_next_filename('dados_pregao_b3', 'csv', diretorio_atual) para salvar com inicio de data atual ex.01_dados_pregao_b3
     diretorio_atual = os.getcwd()
-    nome_arquivo_csv = get_next_filename('dados_pregao_b3', 'csv', diretorio_atual)
+    nome_arquivo_csv = 'dados_pregao_b3.csv'
     caminho_arquivo_csv = os.path.join(diretorio_atual, nome_arquivo_csv)
 
     with open(caminho_arquivo_csv, 'w', newline='', encoding='utf-8-sig') as arquivo_csv:
