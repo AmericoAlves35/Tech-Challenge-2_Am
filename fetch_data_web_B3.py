@@ -13,7 +13,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 from datetime import datetime
-from io import StringIO, BytesIO
+from io import BytesIO
 
 # Função para gerar o próximo nome de arquivo com contador
 def get_next_filename(base_name, extension, directory):
@@ -30,7 +30,9 @@ chrome_options = Options()
 chrome_options.add_argument('--headless')  # Roda o navegador sem abrir uma janela GUI
 
 # Configurando o serviço do ChromeDriver
-service = Service(ChromeDriverManager().install())
+chrome_driver_path = ChromeDriverManager().install()
+chrome_driver_executable = os.path.join(os.path.dirname(chrome_driver_path), "chromedriver.exe")
+service = Service(chrome_driver_executable)
 
 # Inicializando o navegador com as opções configuradas
 driver = webdriver.Chrome(service=service, options=chrome_options)
@@ -41,7 +43,7 @@ base_url = 'https://sistemaswebb3-listados.b3.com.br/indexPage/day/IBOV?language
 # Inicializando variáveis
 dados_pregao = []
 dados_rodape = {}  # Dicionário para armazenar os valores do rodapé dinâmicos
-data_pregao = None
+data_pregao = None  # Inicializa a data da "Carteira do Dia"
 
 # Nomes das colunas da tabela de dados de pregão
 colunas_tabela = ['Carteira do Dia', 'Setor', 'Código', 'Ação', 'Tipo', 'Qtde_Teórica', 'Part_(%)', 'Part_(%)_Acum']
