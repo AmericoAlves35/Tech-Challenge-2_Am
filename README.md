@@ -4,3 +4,5 @@ Construir um pipeline de dados completo para extrair, processar e analisar dados
 
 ## Demonstração
 ![Demonstração](/TechChallengefase2.gif)
+##
+![Demonstração](/TechChallengefase22.gif)
